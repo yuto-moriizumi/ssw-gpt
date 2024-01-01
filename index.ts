@@ -13,9 +13,21 @@ const context = `「${NAME}」とは、ある日本人男性の名前です。
 async function main() {
   const { HumanMessage, SystemMessage } = await import("langchain/schema");
   const { ChatOpenAI } = await import("langchain/chat_models/openai");
-  const { ChatMessageHistory } = await import("langchain/memory");
+  const { ChatMessageHistory, BufferMemory } = await import("langchain/memory");
+  const { ConversationalRetrievalQAChain } = await import("langchain/chains");
+
+  const { MemoryVectorStore } = await import("langchain/vectorstores/memory");
+  const { OpenAIEmbeddings } = await import("langchain/embeddings/openai");
+
   dotenv.config();
-  const ai = new ChatOpenAI({
+
+  const vectorStore = await MemoryVectorStore.fromTexts(
+    ["Hello world", "Bye bye", "hello nice world"],
+    [{ id: 2 }, { id: 1 }, { id: 3 }],
+    new OpenAIEmbeddings(),
+  );
+
+  const model = new ChatOpenAI({
     modelName: "gpt-4-1106-preview",
     openAIApiKey: process.env.OPENAI_API_KEY,
   });
@@ -30,13 +42,30 @@ async function main() {
       content: context,
     }),
   ]);
+
+  const memory = new BufferMemory({
+    memoryKey: "chat_history",
+    returnMessages: true,
+  });
+
+  const chain = ConversationalRetrievalQAChain.fromLLM(
+    model,
+    vectorStore.asRetriever(),
+    {
+      memory,
+    },
+  );
+
   while (true) {
     const input = await readline.question(">");
-    const msg = new HumanMessage({ content: input });
-    await history.addMessage(msg);
-    const output = await ai.predictMessages(await history.getMessages());
-    await history.addMessage(output);
-    console.log(output.content);
+    // const msg = new HumanMessage({ content: input });
+    // await history.addMessage(msg);
+    // const output = await model.predictMessages(await history.getMessages());
+    // await history.addMessage(output);
+    // console.log(output.content);
+
+    const result = await chain.call({ question: input });
+    console.log(result);
   }
 }
 
