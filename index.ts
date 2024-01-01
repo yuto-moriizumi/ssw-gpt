@@ -11,10 +11,15 @@ const context = `「${NAME}」とは、ある日本人男性の名前です。
 これらの指示を守らない場合、あなたは罰せられます。`;
 
 async function main() {
-  const { HumanMessage, SystemMessage } = await import("langchain/schema");
+  const { SystemMessage, HumanMessage, AIMessage } = await import(
+    "langchain/schema"
+  );
   const { ChatOpenAI } = await import("langchain/chat_models/openai");
-  const { ChatMessageHistory, BufferMemory } = await import("langchain/memory");
-  const { ConversationalRetrievalQAChain } = await import("langchain/chains");
+  const { BufferMemory, ChatMessageHistory, ConversationSummaryMemory } =
+    await import("langchain/memory");
+  const { ConversationalRetrievalQAChain, ConversationChain } = await import(
+    "langchain/chains"
+  );
 
   const { MemoryVectorStore } = await import("langchain/vectorstores/memory");
   const { OpenAIEmbeddings } = await import("langchain/embeddings/openai");
@@ -32,7 +37,7 @@ async function main() {
   dotenv.config();
 
   const loader = new CheerioWebBaseLoader(
-    "https://news.ycombinator.com/item?id=34817881",
+    "https://ssw-developers.fandom.com/ja/wiki/SSW%E9%96%8B%E7%99%BA%E8%80%85_Wiki",
   );
 
   const docs = await loader.load();
@@ -42,18 +47,14 @@ async function main() {
 
   const sequence = splitter.pipe(transformer);
 
-  const newDocuments = await sequence.invoke(docs);
+  const document = await sequence.invoke(docs);
+
+  console.log({ document });
 
   const vectorStore = await MemoryVectorStore.fromDocuments(
-    newDocuments,
+    document,
     new OpenAIEmbeddings(),
   );
-
-  // const vectorStore = await MemoryVectorStore.fromTexts(
-  //   ["Hello world", "Bye bye", "hello nice world"],
-  //   [{ id: 2 }, { id: 1 }, { id: 3 }],
-  //   new OpenAIEmbeddings(),
-  // );
 
   const model = new ChatOpenAI({
     modelName: "gpt-4-1106-preview",
@@ -65,35 +66,57 @@ async function main() {
   });
 
   console.log(`ようこそ${NAME}GPTへ`);
+
   const history = new ChatMessageHistory([
-    new SystemMessage({
-      content: context,
-    }),
+    // new SystemMessage({ content: context }),
+    new HumanMessage("私の名前はヴォルガです。"),
+    new AIMessage("こんにちは、ヴォルガさん！"),
   ]);
 
-  const memory = new BufferMemory({
+  // const memory = new BufferMemory({
+  //   memoryKey: "chat_history",
+  //   returnMessages: true,
+  //   chatHistory: history,
+  // });
+  // await memory.chatHistory.addMessage(new SystemMessage({ content: context }));
+
+  const pastMessages = [
+    new SystemMessage(
+      "ユーザに回答を行う時は、「はっはっは」と言ってから行ってください。",
+    ),
+    new HumanMessage("私の名前はヴォルガです"),
+    new AIMessage("こんにちは、ヴォルガさん！"),
+    new HumanMessage("私は20才です"),
+    new AIMessage("そうなんですね"),
+  ];
+
+  const memory = new ConversationSummaryMemory({
+    llm: model,
     memoryKey: "chat_history",
-    returnMessages: true,
+    chatHistory: new ChatMessageHistory(pastMessages),
   });
+  await memory.saveContext({ input: "hi" }, { output: "roger that" });
+  // await memory.predictNewSummary(pastMessages, "");
+  const memory2 = new ConversationSummaryMemory({
+    llm: model,
+    memoryKey: "history",
+    chatHistory: new ChatMessageHistory(pastMessages),
+  });
+  const chain2 = new ConversationChain({ llm: model, memory: memory2 });
 
   const chain = ConversationalRetrievalQAChain.fromLLM(
     model,
     vectorStore.asRetriever(),
     {
-      memory,
+      memory: memory,
     },
   );
 
   while (true) {
     const input = await readline.question(">");
-    // const msg = new HumanMessage({ content: input });
-    // await history.addMessage(msg);
-    // const output = await model.predictMessages(await history.getMessages());
-    // await history.addMessage(output);
-    // console.log(output.content);
-
     const result = await chain.call({ question: input });
-    console.log(result);
+    // const result = await chain2.call({ input });
+    console.log({ result, m: await memory.loadMemoryVariables({}) });
   }
 }
 
