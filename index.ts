@@ -19,13 +19,41 @@ async function main() {
   const { MemoryVectorStore } = await import("langchain/vectorstores/memory");
   const { OpenAIEmbeddings } = await import("langchain/embeddings/openai");
 
+  const { CheerioWebBaseLoader } = await import(
+    "langchain/document_loaders/web/cheerio"
+  );
+  const { RecursiveCharacterTextSplitter } = await import(
+    "langchain/text_splitter"
+  );
+  const { HtmlToTextTransformer } = await import(
+    "langchain/document_transformers/html_to_text"
+  );
+
   dotenv.config();
 
-  const vectorStore = await MemoryVectorStore.fromTexts(
-    ["Hello world", "Bye bye", "hello nice world"],
-    [{ id: 2 }, { id: 1 }, { id: 3 }],
+  const loader = new CheerioWebBaseLoader(
+    "https://news.ycombinator.com/item?id=34817881",
+  );
+
+  const docs = await loader.load();
+
+  const splitter = RecursiveCharacterTextSplitter.fromLanguage("html");
+  const transformer = new HtmlToTextTransformer();
+
+  const sequence = splitter.pipe(transformer);
+
+  const newDocuments = await sequence.invoke(docs);
+
+  const vectorStore = await MemoryVectorStore.fromDocuments(
+    newDocuments,
     new OpenAIEmbeddings(),
   );
+
+  // const vectorStore = await MemoryVectorStore.fromTexts(
+  //   ["Hello world", "Bye bye", "hello nice world"],
+  //   [{ id: 2 }, { id: 1 }, { id: 3 }],
+  //   new OpenAIEmbeddings(),
+  // );
 
   const model = new ChatOpenAI({
     modelName: "gpt-4-1106-preview",
