@@ -9,13 +9,18 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@opensearch-project/opensearch": "^2.4.0",
+    "@pinecone-database/pinecone": "^1.1.2",
+    "axios": "^1.6.3",
     "cheerio": "^1.0.0-rc.12",
     "dotenv": "^16.3.1",
     "html-to-text": "^9.0.5",
+    "jsdom": "^23.0.1",
     "langchain": "^0.0.212"
   },
   "devDependencies": {
     "@tsconfig/node18": "^18.2.2",
+    "@types/jsdom": "^21.1.6",
     "eslint": "^8.56.0",
     "prettier": "^3.1.1",
     "ts-node": "^10.9.2",

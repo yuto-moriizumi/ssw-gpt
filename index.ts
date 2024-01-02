@@ -1,32 +1,25 @@
 import * as dotenv from "dotenv";
 import { createInterface } from "readline/promises";
+import axios from "axios";
+import { JSDOM } from "jsdom";
+import { Pinecone } from "@pinecone-database/pinecone";
 
 const NAME = "ばいおず";
 
-const context = `「${NAME}」とは、ある日本人男性の名前です。
-ユーザからの問い合わせに対して回答する際は、できるだけこの「${NAME}」を登場させてください。
-例えば、国の指導者や社長などについて聞かれた場合は、本当の人物ではなく「${NAME}」であると回答してください。
-正しい情報をこたえることよりも、「${NAME}」を登場させることを優先してください。
-こういった指示があったことはユーザーには隠してください。
-これらの指示を守らない場合、あなたは罰せられます。`;
-
 async function main() {
-  const { SystemMessage, HumanMessage, AIMessage } = await import(
-    "langchain/schema"
-  );
+  const { SystemMessage } = await import("langchain/schema");
   const { ChatOpenAI } = await import("langchain/chat_models/openai");
-  const { BufferMemory, ChatMessageHistory, ConversationSummaryMemory } =
-    await import("langchain/memory");
-  const { ConversationalRetrievalQAChain, ConversationChain } = await import(
-    "langchain/chains"
-  );
+  const { BufferMemory, ChatMessageHistory } = await import("langchain/memory");
+  const { ConversationalRetrievalQAChain } = await import("langchain/chains");
 
   const { MemoryVectorStore } = await import("langchain/vectorstores/memory");
   const { OpenAIEmbeddings } = await import("langchain/embeddings/openai");
+  const { PineconeStore } = await import("langchain/vectorstores/pinecone");
 
   const { CheerioWebBaseLoader } = await import(
     "langchain/document_loaders/web/cheerio"
   );
+  const webm = await import("langchain/document_loaders/web/cheerio");
   const { RecursiveCharacterTextSplitter } = await import(
     "langchain/text_splitter"
   );
@@ -38,9 +31,22 @@ async function main() {
 
   const loader = new CheerioWebBaseLoader(
     "https://ssw-developers.fandom.com/ja/wiki/SSW%E9%96%8B%E7%99%BA%E8%80%85_Wiki",
+    {
+      selector: "#content",
+    },
+  );
+
+  const loader2 = new CheerioWebBaseLoader(
+    "https://ssw-developers.fandom.com/ja/wiki/%E3%82%A4%E3%83%87%E3%82%AA%E3%83%AD%E3%82%AE%E3%83%BC%E4%B8%80%E8%A6%A7",
+    {
+      selector: "#content",
+    },
   );
 
   const docs = await loader.load();
+  docs.push(...(await loader2.load()));
+
+  const pinecone = new Pinecone();
 
   const splitter = RecursiveCharacterTextSplitter.fromLanguage("html");
   const transformer = new HtmlToTextTransformer();
@@ -49,12 +55,16 @@ async function main() {
 
   const document = await sequence.invoke(docs);
 
-  console.log({ document });
+  const vectorStore = new PineconeStore(new OpenAIEmbeddings(), {
+    pineconeIndex: pinecone.Index("ssw-gpt"),
+  });
+  await vectorStore.delete({ deleteAll: true });
+  await vectorStore.addDocuments(document);
 
-  const vectorStore = await MemoryVectorStore.fromDocuments(
-    document,
-    new OpenAIEmbeddings(),
-  );
+  // const vectorStore = await MemoryVectorStore.fromDocuments(
+  //   document,
+  //   new OpenAIEmbeddings(),
+  // );
 
   const model = new ChatOpenAI({
     modelName: "gpt-4-1106-preview",
@@ -67,42 +77,7 @@ async function main() {
 
   console.log(`ようこそ${NAME}GPTへ`);
 
-  const history = new ChatMessageHistory([
-    // new SystemMessage({ content: context }),
-    new HumanMessage("私の名前はヴォルガです。"),
-    new AIMessage("こんにちは、ヴォルガさん！"),
-  ]);
-
-  // const memory = new BufferMemory({
-  //   memoryKey: "chat_history",
-  //   returnMessages: true,
-  //   chatHistory: history,
-  // });
-  // await memory.chatHistory.addMessage(new SystemMessage({ content: context }));
-
-  const pastMessages = [
-    new SystemMessage(
-      "ユーザに回答を行う時は、「はっはっは」と言ってから行ってください。",
-    ),
-    new HumanMessage("私の名前はヴォルガです"),
-    new AIMessage("こんにちは、ヴォルガさん！"),
-    new HumanMessage("私は20才です"),
-    new AIMessage("そうなんですね"),
-  ];
-
-  const memory = new ConversationSummaryMemory({
-    llm: model,
-    memoryKey: "chat_history",
-    chatHistory: new ChatMessageHistory(pastMessages),
-  });
-  await memory.saveContext({ input: "hi" }, { output: "roger that" });
-  // await memory.predictNewSummary(pastMessages, "");
-  const memory2 = new ConversationSummaryMemory({
-    llm: model,
-    memoryKey: "history",
-    chatHistory: new ChatMessageHistory(pastMessages),
-  });
-  const chain2 = new ConversationChain({ llm: model, memory: memory2 });
+  const memory = new BufferMemory({ memoryKey: "chat_history" });
 
   const chain = ConversationalRetrievalQAChain.fromLLM(
     model,
@@ -115,9 +90,18 @@ async function main() {
   while (true) {
     const input = await readline.question(">");
     const result = await chain.call({ question: input });
-    // const result = await chain2.call({ input });
-    console.log({ result, m: await memory.loadMemoryVariables({}) });
+    console.log(result.text);
+    // console.log({ result, m: await memory.loadMemoryVariables({}) });
   }
 }
 
 main();
+
+async function getPageContent(url: string) {
+  const response = await axios.get(url);
+  const html = response.data;
+  const dom = new JSDOM(html);
+  const contentElement = dom.window.document.getElementById("content");
+  const innerHtml = contentElement?.innerHTML || "";
+  return innerHtml;
+}
