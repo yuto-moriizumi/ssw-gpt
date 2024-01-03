@@ -40,7 +40,11 @@ export default function Home() {
       <List sx={{ overflow: "scroll" }} ref={ref}>
         {messages.map((message, index) => (
           <ListItem key={index}>
-            <ListItemText primary={message.user} secondary={message.text} />
+            <ListItemText
+              primary={message.user}
+              secondary={message.text}
+              sx={{ whiteSpace: "pre-wrap" }}
+            />
           </ListItem>
         ))}
       </List>
