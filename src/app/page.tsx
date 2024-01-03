@@ -46,7 +46,7 @@ export default function Home() {
 
   return (
     <Stack justifyContent="space-between" height="100vh">
-      <Box sx={{ overflow: "scroll" }} padding={2}>
+      <Box sx={{ overflow: "scroll" }} padding={2} ref={ref}>
         <Typography variant="h3" textAlign="center">
           ばいおずGPT
         </Typography>

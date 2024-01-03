@@ -3,8 +3,8 @@
 import { Pinecone } from "@pinecone-database/pinecone";
 import { ChatOpenAI } from "langchain/chat_models/openai";
 import { OpenAIEmbeddings } from "langchain/embeddings/openai";
-import { BufferMemory, ChatMessageHistory } from "langchain/memory";
-import { ChatPromptTemplate, MessagesPlaceholder } from "langchain/prompts";
+import { ChatMessageHistory } from "langchain/memory";
+import { ChatPromptTemplate, PromptTemplate } from "langchain/prompts";
 import {
   AIMessage,
   BaseMessage,
@@ -35,29 +35,34 @@ export async function chat(req: Request): Promise<Response> {
     pineconeIndex: new Pinecone().Index("ssw-gpt"),
   });
 
-  const messages = deserializeMessages(req.history ?? []);
+  const history = new ChatMessageHistory(
+    deserializeMessages(req.history ?? []),
+  );
 
-  const chatPrompt = ChatPromptTemplate.fromMessages([
-    [
-      "system",
-      "Use the following pieces of context to answer the question at the end." +
-        " If you don't know the answer, just say that you don't know, don't try to make up an answer." +
-        "\n{context}",
-    ],
-    new MessagesPlaceholder("chat_history"),
-    ["human", "{question}"],
-  ]);
-
-  const history = new ChatMessageHistory(messages ?? []);
-  await history.addUserMessage(req.input);
+  const chatPrompt =
+    PromptTemplate.fromTemplate(`次の情報を元に、質問に答えてください。
+----------------
+背景情報:
+{context}
+----------------
+チャット履歴:
+{chatHistory}
+----------------
+質問: {question}
+----------------
+回答:`);
 
   const prompt = await chatPrompt.format({
     question: req.input,
-    chat_history: await history.getMessages(),
+    chatHistory: await ChatPromptTemplate.fromMessages(
+      await history.getMessages(),
+    ).format({}),
     context: formatDocumentsAsString(
       await vectorStore.asRetriever().getRelevantDocuments(req.input),
     ),
   });
+  console.log(prompt);
+  await history.addUserMessage(req.input);
   const result = await model.predict(prompt);
   await history.addAIChatMessage(result);
   console.log({ perf: performance.now() - t });
