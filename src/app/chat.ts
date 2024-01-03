@@ -14,6 +14,7 @@ import {
 } from "langchain/schema";
 import { formatDocumentsAsString } from "langchain/util/document";
 import { PineconeStore } from "langchain/vectorstores/pinecone";
+import { INDEX_NAME } from "./constants";
 
 type Request = {
   input: string;
@@ -28,11 +29,11 @@ export async function chat(req: Request): Promise<Response> {
   "use server";
   const t = performance.now();
   const model = new ChatOpenAI({
-    modelName: "gpt-4-1106-preview",
+    modelName: "gpt-3.5-turbo-1106",
     openAIApiKey: process.env.OPENAI_API_KEY,
   });
   const vectorStore = new PineconeStore(new OpenAIEmbeddings(), {
-    pineconeIndex: new Pinecone().Index("ssw-gpt"),
+    pineconeIndex: new Pinecone().index(INDEX_NAME),
   });
 
   const history = new ChatMessageHistory(
@@ -58,7 +59,7 @@ export async function chat(req: Request): Promise<Response> {
       await history.getMessages(),
     ).format({}),
     context: formatDocumentsAsString(
-      await vectorStore.asRetriever().getRelevantDocuments(req.input),
+      await vectorStore.similaritySearch(req.input, 2),
     ),
   });
   console.log(prompt);

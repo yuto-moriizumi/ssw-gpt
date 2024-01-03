@@ -1,53 +1,63 @@
+import { List, ListItem, ListItemText } from "@mui/material";
+import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
+import { NodeHtmlMarkdown } from "node-html-markdown";
+import axios from "axios";
+import { JSDOM } from "jsdom";
 import { Pinecone } from "@pinecone-database/pinecone";
+import { OpenAIEmbeddings } from "langchain/embeddings/openai";
+import { PineconeStore } from "langchain/vectorstores/pinecone";
+import { INDEX_NAME } from "../constants";
 
 export default async function Update() {
-  const { OpenAIEmbeddings } = await import("langchain/embeddings/openai");
-  const { PineconeStore } = await import("langchain/vectorstores/pinecone");
-  const { CheerioWebBaseLoader } = await import(
-    "langchain/document_loaders/web/cheerio"
-  );
-  const { RecursiveCharacterTextSplitter } = await import(
-    "langchain/text_splitter"
-  );
-  const { HtmlToTextTransformer } = await import(
-    "langchain/document_transformers/html_to_text"
-  );
+  const URL =
+    "https://ssw-developers.fandom.com/ja/wiki/SSW%E9%96%8B%E7%99%BA%E8%80%85_Wiki";
 
-  const loader = new CheerioWebBaseLoader(
-    "https://ssw-developers.fandom.com/ja/wiki/SSW%E9%96%8B%E7%99%BA%E8%80%85_Wiki",
-    {
-      selector: "#content",
-    },
-  );
-
-  const loader2 = new CheerioWebBaseLoader(
-    "https://ssw-developers.fandom.com/ja/wiki/%E3%82%A4%E3%83%87%E3%82%AA%E3%83%AD%E3%82%AE%E3%83%BC%E4%B8%80%E8%A6%A7",
-    {
-      selector: "#content",
-    },
-  );
-
-  const docs = await loader.load();
-  docs.push(...(await loader2.load()));
-
-  const splitter = RecursiveCharacterTextSplitter.fromLanguage("html");
-  const transformer = new HtmlToTextTransformer();
-
-  const sequence = splitter.pipe(transformer);
-
-  const document = await sequence.invoke(docs);
-
-  const pinecone = new Pinecone();
-  const vectorStore = new PineconeStore(new OpenAIEmbeddings(), {
-    pineconeIndex: pinecone.Index("ssw-gpt"),
+  const outerHTML = await getPageContent(URL);
+  const markdown = NodeHtmlMarkdown.translate(outerHTML, {
+    maxConsecutiveNewlines: 2,
   });
-  await vectorStore.delete({ deleteAll: true });
-  await vectorStore.addDocuments(document);
+  const splitter = RecursiveCharacterTextSplitter.fromLanguage("markdown", {
+    chunkSize: 2000,
+  });
+  const docs = await splitter.createDocuments([markdown]);
+
+  /** pineconeは基本的に遅延がある。情報取得系の返却は基本数分前の情報が戻ってくることに注意。 */
+  const pinecone = new Pinecone();
+  try {
+    await pinecone.deleteIndex(INDEX_NAME);
+  } catch {}
+  await pinecone.createIndex({
+    name: INDEX_NAME,
+    dimension: 1536,
+    metric: "cosine",
+  });
+  await PineconeStore.fromDocuments(docs, new OpenAIEmbeddings(), {
+    pineconeIndex: pinecone.index(INDEX_NAME),
+  });
 
   return (
     <main>
       <h1>The vector store has been updated!</h1>
       <p>item count: {docs.length}</p>
+      <pre>{markdown}</pre>
+      <List>
+        {docs.map((doc, i) => (
+          <ListItem key={i}>
+            <ListItemText sx={{ whiteSpace: "pre-wrap", border: "solid" }}>
+              {doc.pageContent}
+            </ListItemText>
+          </ListItem>
+        ))}
+      </List>
     </main>
   );
+}
+
+async function getPageContent(url: string) {
+  const response = await axios.get(url);
+  const dom = new JSDOM(response.data);
+  const parserOutput = dom.window.document.querySelector(
+    "div.mw-parser-output",
+  );
+  return parserOutput?.outerHTML || "";
 }
