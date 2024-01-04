@@ -9,13 +9,13 @@ import {
   Stack,
   Box,
   Typography,
-  Container,
   Avatar,
   ListItemAvatar,
 } from "@mui/material";
 import { useEffect, useRef, useState } from "react";
 import { chat } from "./chat";
 import { StoredMessage } from "langchain/schema";
+import axios from "axios";
 
 enum User {
   YOU = "あなた",
@@ -32,7 +32,7 @@ export default function Home() {
   const handleSend = async () => {
     setMessages((prev) => [...prev, { user: User.YOU, text: newMessage }]);
     setNewMessage("");
-    const { output, history: newHistory } = await chat({
+    const { output, history: newHistory } = await getChat({
       input: newMessage,
       history,
     });
@@ -86,3 +86,20 @@ export default function Home() {
     </Stack>
   );
 }
+
+async function getChat(req: Request) {
+  const responce = await axios.post<Response>(
+    "https://gx4rs5oxxj.execute-api.ap-northeast-1.amazonaws.com/chat",
+    { ...req },
+  );
+  return responce.data;
+}
+
+type Request = {
+  input: string;
+  history?: StoredMessage[];
+};
+type Response = {
+  output: string;
+  history: StoredMessage[];
+};

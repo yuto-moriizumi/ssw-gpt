@@ -1,0 +1,29 @@
+﻿service: ssw-gpt-node
+frameworkVersion: "3"
+useDotenv: true
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: ap-northeast-1
+  timeout: 60
+  httpApi:
+    cors: true
+  environment:
+    OPENAI_API_KEY: ${env:OPENAI_API_KEY}
+    PINECONE_API_KEY: ${env:PINECONE_API_KEY}
+    PINECONE_ENVIRONMENT: ${env:PINECONE_ENVIRONMENT}
+
+functions:
+  api:
+    handler: main.handler
+    events:
+      - httpApi: "*"
+
+plugins:
+  - serverless-webpack
+  - serverless-offline
+
+custom:
+  webpack:
+    webpackConfig: webpack.config.ts
