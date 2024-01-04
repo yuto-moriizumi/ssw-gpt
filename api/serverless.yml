@@ -1,0 +1,22 @@
+﻿service: ssw-gpt
+frameworkVersion: "3"
+
+provider:
+  name: aws
+  runtime: python3.12
+  region: ap-northeast-1
+  httpApi:
+    cors: true
+
+functions:
+  app:
+    handler: main.handler
+    events:
+      - httpApi: "*"
+
+plugins:
+  - serverless-python-requirements
+
+custom:
+  pythonRequirements:
+    dockerizePip: true

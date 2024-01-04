@@ -14,6 +14,10 @@ import {
 } from "langchain/schema";
 import { formatDocumentsAsString } from "langchain/util/document";
 import { PineconeStore } from "langchain/vectorstores/pinecone";
+import { INDEX_NAME, MODEL } from "./constants";
+
+/** 関連情報検索結果のうち、上位何件をプロンプトに利用するか */
+const TOP_K = 7;
 
 type Request = {
   input: string;
@@ -28,11 +32,8 @@ export async function chat(req: Request): Promise<Response> {
   "use server";
   const t = performance.now();
   const model = new ChatOpenAI({
-    modelName: "gpt-4-1106-preview",
+    modelName: MODEL.GPT4,
     openAIApiKey: process.env.OPENAI_API_KEY,
-  });
-  const vectorStore = new PineconeStore(new OpenAIEmbeddings(), {
-    pineconeIndex: new Pinecone().Index("ssw-gpt"),
   });
 
   const history = new ChatMessageHistory(
@@ -40,9 +41,9 @@ export async function chat(req: Request): Promise<Response> {
   );
 
   const chatPrompt =
-    PromptTemplate.fromTemplate(`次の情報を元に、質問に答えてください。
+    PromptTemplate.fromTemplate(`次の情報を元に、質問に答えてください。回答する際は、「ばいおず」という人物を登場させてください。もし登場させるのが難しい場合は、質問に答えるだけでも構いません。
 ----------------
-背景情報:
+関連情報:
 {context}
 ----------------
 チャット履歴:
@@ -57,9 +58,7 @@ export async function chat(req: Request): Promise<Response> {
     chatHistory: await ChatPromptTemplate.fromMessages(
       await history.getMessages(),
     ).format({}),
-    context: formatDocumentsAsString(
-      await vectorStore.asRetriever().getRelevantDocuments(req.input),
-    ),
+    context: await getRelatedDocs(req.input),
   });
   console.log(prompt);
   await history.addUserMessage(req.input);
@@ -85,4 +84,17 @@ function deserializeMessages(messages: StoredMessage[]): BaseMessage[] {
         throw new Error(`Unknown message type: ${m.type}`);
     }
   });
+}
+
+async function getRelatedDocs(text: string) {
+  const vectorStore = new PineconeStore(new OpenAIEmbeddings(), {
+    pineconeIndex: new Pinecone().index(INDEX_NAME),
+  });
+  try {
+    return formatDocumentsAsString(
+      await vectorStore.similaritySearch(text, TOP_K),
+    );
+  } catch {
+    return "関連情報の取得に失敗しました。";
+  }
 }

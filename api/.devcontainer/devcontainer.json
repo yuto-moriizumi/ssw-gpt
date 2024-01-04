@@ -1,0 +1,14 @@
+{
+  "name": "Python Sample",
+  "dockerFile": "Dockerfile",
+  "postAttachCommand": "pip install -r requirements.txt",
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-python.python","ms-python.black-formatter"],
+      "settings": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "ms-python.black-formatter"
+      }
+    }
+  }
+}

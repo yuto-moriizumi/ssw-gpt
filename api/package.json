@@ -1,0 +1,12 @@
+{
+  "name": "api",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "deploy": "sls deploy"
+  },
+  "license": "ISC",
+  "devDependencies": {
+    "serverless-python-requirements": "^6.0.1"
+  }
+}
