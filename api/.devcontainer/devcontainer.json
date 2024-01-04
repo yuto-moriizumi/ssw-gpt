@@ -1,0 +1,9 @@
+{
+  "name": "Python Sample",
+  "dockerFile": "Dockerfile",
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-python.python"]
+    }
+  }
+}

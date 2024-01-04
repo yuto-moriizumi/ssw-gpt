@@ -1,6 +1,7 @@
 import uvicorn
 from fastapi import FastAPI
 from mangum import Mangum
+import langchain
 
 app = FastAPI()
 
