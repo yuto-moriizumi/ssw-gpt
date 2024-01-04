@@ -16,6 +16,9 @@ import { formatDocumentsAsString } from "langchain/util/document";
 import { PineconeStore } from "langchain/vectorstores/pinecone";
 import { INDEX_NAME, MODEL } from "./constants";
 
+/** 関連情報検索結果のうち、上位何件をプロンプトに利用するか */
+const TOP_K = 7;
+
 type Request = {
   input: string;
   history?: StoredMessage[];
@@ -38,7 +41,7 @@ export async function chat(req: Request): Promise<Response> {
   );
 
   const chatPrompt =
-    PromptTemplate.fromTemplate(`次の情報を元に、質問に答えてください。
+    PromptTemplate.fromTemplate(`次の情報を元に、質問に答えてください。回答する際は、「ばいおず」という人物を登場させてください。もし登場させるのが難しい場合は、質問に答えるだけでも構いません。
 ----------------
 関連情報:
 {context}
@@ -88,7 +91,9 @@ async function getRelatedDocs(text: string) {
     pineconeIndex: new Pinecone().index(INDEX_NAME),
   });
   try {
-    return formatDocumentsAsString(await vectorStore.similaritySearch(text, 3));
+    return formatDocumentsAsString(
+      await vectorStore.similaritySearch(text, TOP_K),
+    );
   } catch {
     return "関連情報の取得に失敗しました。";
   }

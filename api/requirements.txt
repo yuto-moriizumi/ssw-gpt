@@ -3,3 +3,4 @@ mangum==0.17.0
 uvicorn==0.25.0
 pydantic_core==2.14.6
 langchain==0.0.354
+lxml==5.0.0
