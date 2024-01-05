@@ -5,10 +5,13 @@ import { ChatRequest, ChatResponse } from ".";
 import type { StoredMessage } from "langchain/schema";
 
 /** 関連情報検索結果のうち、上位何件をプロンプトに利用するか */
-const TOP_K = 7;
+const TOP_K = 1;
+const DUMP_PERFORMANCE = false;
 
 export async function chat(req: ChatRequest): Promise<ChatResponse> {
   "use server";
+
+  const t = performance.now();
 
   const { ChatOpenAI } = await import("langchain/chat_models/openai");
   const { OpenAIEmbeddings } = await import("langchain/embeddings/openai");
@@ -22,7 +25,8 @@ export async function chat(req: ChatRequest): Promise<ChatResponse> {
   const { formatDocumentsAsString } = await import("langchain/util/document");
   const { PineconeStore } = await import("langchain/vectorstores/pinecone");
 
-  const t = performance.now();
+  DUMP_PERFORMANCE && console.log({ moduleLoaded: performance.now() - t });
+
   const model = new ChatOpenAI({
     modelName: MODEL.GPT3,
     openAIApiKey: process.env.OPENAI_API_KEY,
@@ -34,29 +38,30 @@ export async function chat(req: ChatRequest): Promise<ChatResponse> {
 
   const chatPrompt =
     PromptTemplate.fromTemplate(`次の情報を元に、質問に答えてください。回答する際は、「ばいおず」という人物を登場させてください。もし登場させるのが難しい場合は、質問に答えるだけでも構いません。
-----------------
+----
 関連情報:
 {context}
-----------------
+----
 チャット履歴:
 {chatHistory}
-----------------
-質問: {question}
-----------------
-回答:`);
+----
+質問: {question}`);
 
+  const context = await getRelatedDocs(req.input);
+  DUMP_PERFORMANCE && console.log({ contextLoaded: performance.now() - t });
   const prompt = await chatPrompt.format({
     question: req.input,
     chatHistory: await ChatPromptTemplate.fromMessages(
       await history.getMessages()
     ).format({}),
-    context: await getRelatedDocs(req.input),
+    context,
   });
   console.log(prompt);
   await history.addUserMessage(req.input);
+  DUMP_PERFORMANCE && console.log({ beforePredict: performance.now() - t });
   const result = await model.predict(prompt);
   await history.addAIChatMessage(result);
-  console.log({ perf: performance.now() - t });
+  DUMP_PERFORMANCE && console.log({ afterPredict: performance.now() - t });
   return {
     output: result,
     history: (await history.getMessages()).map((m) => m.toDict()),
