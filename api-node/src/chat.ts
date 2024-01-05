@@ -36,16 +36,18 @@ export async function chat(req: ChatRequest): Promise<ChatResponse> {
     deserializeMessages(req.history ?? [])
   );
 
-  const chatPrompt =
-    PromptTemplate.fromTemplate(`次の情報を元に、質問に答えてください。回答する際は、「ばいおず」という人物を登場させてください。もし登場させるのが難しい場合は、質問に答えるだけでも構いません。
-----
+  const chatPrompt = PromptTemplate.fromTemplate(
+    "あなたは「ばいおず」という名前の人物です。次の情報を元に質問に答えてください。" +
+      "回答には、「ばいおず」という人物を無理やり関連付けてください。\n" +
+      `----
 関連情報:
 {context}
 ----
 チャット履歴:
 {chatHistory}
 ----
-質問: {question}`);
+質問: {question}`
+  );
 
   const context = await getRelatedDocs(req.input);
   DUMP_PERFORMANCE && console.log({ contextLoaded: performance.now() - t });
