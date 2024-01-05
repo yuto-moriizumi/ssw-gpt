@@ -5,7 +5,7 @@ import { ChatRequest, ChatResponse } from ".";
 import type { StoredMessage } from "langchain/schema";
 
 /** 関連情報検索結果のうち、上位何件をプロンプトに利用するか */
-const TOP_K = 1;
+const TOP_K = 2;
 const DUMP_PERFORMANCE = false;
 
 export async function chat(req: ChatRequest): Promise<ChatResponse> {
