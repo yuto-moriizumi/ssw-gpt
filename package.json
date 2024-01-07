@@ -6,5 +6,8 @@
     "api-node",
     "front",
     "front-discord"
-  ]
+  ],
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  }
 }
