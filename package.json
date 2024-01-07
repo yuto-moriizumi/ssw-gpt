@@ -4,6 +4,7 @@
   "workspaces": [
     "api-python",
     "api-node",
-    "front"
+    "front",
+    "front-discord"
   ]
 }
