@@ -1,4 +1,4 @@
-export const INDEX_NAME = "ssw-gpt-5";
+export const INDEX_NAME = "ssw-gpt-7";
 
 export const MODEL = {
   GPT3: "gpt-3.5-turbo-1106",
