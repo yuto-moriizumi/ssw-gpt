@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "ts-node ./src/index.ts"
+    "start": "ts-node ./src/index.ts",
+    "build": "docker build --platform linux/arm64 -t volgakurvar/ssw-gpt-discord:latest ."
   },
   "author": "",
   "license": "ISC",
