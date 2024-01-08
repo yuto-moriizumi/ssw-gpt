@@ -1,6 +1,7 @@
 import { Client, REST, Routes, ApplicationCommandOptionType } from "discord.js";
 import dotenv from "dotenv";
 import axios from "axios";
+import { MODEL } from "./constants";
 
 dotenv.config();
 
@@ -13,6 +14,11 @@ const commands = [
         name: "質問",
         description: "質問内容",
         type: ApplicationCommandOptionType.String,
+      },
+      {
+        name: "精度",
+        description: "精度を上げる?",
+        type: ApplicationCommandOptionType.Boolean,
       },
     ],
   },
@@ -42,11 +48,15 @@ const rest = new REST({ version: "10" }).setToken(process.env.TOKEN ?? "");
         await interaction.reply("質問を入力してください");
         return;
       }
+      const isAccurate = interaction.options.get("精度")?.value;
       try {
         await interaction.deferReply();
         const responce = await axios.post<Response>(
           "https://gx4rs5oxxj.execute-api.ap-northeast-1.amazonaws.com/chat",
-          { input: question } as Request
+          {
+            input: question,
+            model: isAccurate ? "gpt-4-1106-preview" : "gpt-3.5-turbo-1106",
+          } as Request
         );
         await interaction.followUp(responce.data.output);
       } catch (error) {
@@ -63,6 +73,7 @@ const rest = new REST({ version: "10" }).setToken(process.env.TOKEN ?? "");
 
 type Request = {
   input: string;
+  model?: (typeof MODEL)[keyof typeof MODEL];
 };
 type Response = {
   output: string;

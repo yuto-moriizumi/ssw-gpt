@@ -3,6 +3,7 @@ import cors from "cors";
 import { chat } from "./chat";
 // @ts-expect-error
 import type { StoredMessage } from "langchain/schema";
+import { MODEL } from "./constants";
 
 const app = express();
 
@@ -16,6 +17,7 @@ app.use(cors());
 
 export type ChatRequest = {
   input: string;
+  model?: (typeof MODEL)[keyof typeof MODEL];
   history?: StoredMessage[];
 };
 export type ChatResponse = {

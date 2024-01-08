@@ -28,7 +28,7 @@ export async function chat(req: ChatRequest): Promise<ChatResponse> {
   DUMP_PERFORMANCE && console.log({ moduleLoaded: performance.now() - t });
 
   const model = new ChatOpenAI({
-    modelName: MODEL.GPT3,
+    modelName: req.model ?? MODEL.GPT3,
     openAIApiKey: process.env.OPENAI_API_KEY,
   });
 
