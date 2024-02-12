@@ -55,7 +55,7 @@ const rest = new REST({ version: "10" }).setToken(process.env.TOKEN ?? "");
           "https://gx4rs5oxxj.execute-api.ap-northeast-1.amazonaws.com/chat",
           {
             input: question,
-            model: isAccurate ? "gpt-4-1106-preview" : "gpt-3.5-turbo-1106",
+            model: isAccurate ? "gpt-4-turbo-preview" : "gpt-3.5-turbo-0125",
           } as Request
         );
         await interaction.followUp(responce.data.output);
